@@ -6,7 +6,7 @@ print("Accès TSSE.py via main.py OK.")
 bot2 = Popen(["python3", "Voltaire.py"])
 print("Accès Voltaire.py via main.py OK.")
 
-bot3 = Popen(["python3", "SKR/skr.py"])
+bot3 = Popen(["python3", "SKR/config.py"])
 print("Accès skr.py via main.py OK.")
 
 bot1.wait()

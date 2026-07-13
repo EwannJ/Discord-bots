@@ -1,27 +1,28 @@
+import os
+from dotenv import load_dotenv
 import discord
+from discord.ext import commands
 from discord import app_commands
 
-TOKEN = 'MTUyNTkyODE3NjI1MTgzNDYwOA.GER9RR.e13IzvtnrxMKANf8pbZk9jt0lapqzd4FCVUmdw'
+load_dotenv()
+toekn = os.getenv('TOKEN')
 
-client = discord.Client(intents=discord.Intents.all())
+intents = discord.Intents.all()
+bot = SKRBot(command_prefix=commands.when_mentioned, intents=intents, help_command=None)
 
-@app_commands.command(name="test", description="Test des commandes")
-@app_commands.describe(
-    Test1="Texte",
-    Test2="Choix"
-)
-@app_commands.choices(Test2=[
-    app_commands.Choice(name="Choix 1"),
-    app_commands.Choice(name="Choix 2")
-])
+@app_commands.command(name="ping", description="Voir le ping du bot")
 @app_commands.checks.has_permissions(manage_messages=True)
-@app_commands.guild_only()
-async def rrnote(interaction: discord.Interaction)
-    await fo
+async def ping(self, interaction: discord.Interaction):
+    latency = round(self.bot.latency * 1000)
+    await interaction.response.send_message(f"🏓 Pong ! Ma latence est de **{latency}ms**.", ephemeral=True)
 
-
-@client.event
+@bot.event
 async def on_ready():
     print("SKR online !")
+    try:
+        synced = await bot.tree.sync()
+        print(f"{len(synced)} commandes syncronisées")
+    except Exception as e:
+        print(f"/!\ Erreur lors de la synchronisation des commandes : {e}")
 
-client.run(TOKEN)
+bot.run(TOKEN)
