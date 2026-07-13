@@ -1,11 +1,8 @@
-import os
-from dotenv import load_dotenv
 import discord
 from discord.ext import commands
 from discord import app_commands
 
-load_dotenv()
-TOKEN = os.getenv('TOKEN')
+TOKEN = "MTUyNTkyODE3NjI1MTgzNDYwOA.GER9RR.e13IzvtnrxMKANf8pbZk9jt0lapqzd4FCVUmdw"
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix=commands.when_mentioned, intents=intents, help_command=None)
