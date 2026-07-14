@@ -58,7 +58,6 @@ class LinkAccountView(discord.ui.View):
 
 
 class CommandesCog(commands.Cog):
-    """Slash commands du bot : bouton de liaison, ping, etc."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -68,6 +67,7 @@ class CommandesCog(commands.Cog):
         # que le bouton reste cliquable après un redémarrage du bot.
         self.bot.add_view(LinkAccountView(self.bot))
 
+# /createrequestbutton
     @app_commands.command(
         name="createrequestbutton",
         description="Crée le bouton de liaison de compte dans ce salon.",
@@ -78,6 +78,7 @@ class CommandesCog(commands.Cog):
         await interaction.channel.send(view=LinkAccountView(self.bot))
         await interaction.delete_original_response()
 
+# /ping
     @app_commands.command(name="ping", description="Voir le ping du bot")
     @app_commands.checks.has_permissions(manage_messages=True)
     async def ping(self, interaction: discord.Interaction):
