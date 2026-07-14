@@ -43,3 +43,5 @@ traitlets==5.15.0
 urllib3==2.6.3
 wcwidth==0.7.0
 yarl==1.22.0
+aiohttp>=3.9.0
+pyngrok>=7.0.0
