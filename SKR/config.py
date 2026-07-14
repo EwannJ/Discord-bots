@@ -1,5 +1,12 @@
 import os
 
+from dotenv import load_dotenv
+
+# Charge les variables définies dans un fichier .env à la racine du projet
+# (s'il existe). Sur Orion, si le panel injecte déjà les variables
+# d'environnement directement, cet appel est un no-op inoffensif.
+load_dotenv()
+
 # ---------------------------------------------------------------------------
 # SECRETS — variables d'environnement (jamais en clair dans le code)
 # ---------------------------------------------------------------------------

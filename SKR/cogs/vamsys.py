@@ -101,11 +101,18 @@ class VamsysCog(commands.Cog):
         full_name = sanitise_name(f"{first_name} {last_name}".strip())
         separator = server_config["nickSeparator"]
 
+        errors: list[str] = []
+
+        # --- Pseudo : tenté indépendamment du reste (peut échouer sur le
+        # propriétaire du serveur quelle que soit la hiérarchie des rôles) ---
         try:
             await member.edit(nick=f"{full_name}{separator}{pilot_id}".strip())
         except discord.Forbidden:
-            return False, "Le bot n'a pas la permission de modifier le pseudo (rôle du bot trop bas)."
+            errors.append(
+                "pseudo non modifié (rôle du bot trop bas, ou membre = propriétaire du serveur)"
+            )
 
+        # --- Rôles : toujours tenté, même si le pseudo a échoué au-dessus ---
         role_removal_cfg = server_config.get("roleRemoval", {"enabled": False, "roleId": []})
         user_role_ids = [r.id for r in member.roles if r.id != guild.id]
 
@@ -123,9 +130,14 @@ class VamsysCog(commands.Cog):
             new_roles = [r for r in new_roles if r is not None]
             await member.edit(roles=new_roles)
         except discord.Forbidden:
-            return False, "Le bot n'a pas la permission de modifier les rôles (rôle du bot trop bas)."
+            errors.append("rôles non modifiés (rôle du bot trop bas)")
 
-        return True, "OK"
+        if not errors:
+            return True, "OK"
+
+        # Rôles appliqués mais pseudo en échec (ou l'inverse) : on considère
+        # que c'est un succès partiel, avec le détail de ce qui a raté.
+        return True, "Partiel : " + " ; ".join(errors)
 
     # ------------------------------------------------------------------
     # Callback OAuth (route web)
@@ -209,10 +221,16 @@ class VamsysCog(commands.Cog):
 
         success, message = await self.apply_pilot_to_member(guild, member, pilot_data)
 
-        if success:
+        if success and message == "OK":
             return web.Response(
                 text="✅ Compte lié avec succès ! Ton pseudo et ton rôle ont été mis à jour. "
                 "Tu peux fermer cette page et retourner sur Discord."
+            )
+        elif success:
+            log.warning("Liaison partielle pour %s : %s", member, message)
+            return web.Response(
+                text=f"✅ Compte lié, mais avec un avertissement : {message}\n\n"
+                "Tu peux fermer cette page. Contacte un administrateur si besoin."
             )
         else:
             log.error("Échec de l'application du pseudo/rôle pour %s : %s", member, message)
