@@ -101,12 +101,17 @@ class VamsysCog(commands.Cog):
         full_name = sanitise_name(f"{first_name} {last_name}".strip())
         separator = server_config["nickSeparator"]
 
+        # Si vAMSYS ne renvoie pas de nom (ex: champ absent de la réponse
+        # /pilot/profile), on évite un pseudo du style " | SKR0001" et on
+        # se rabat sur l'ID SKR seul.
+        new_nick = f"{full_name}{separator}{pilot_id}".strip() if full_name else pilot_id
+
         errors: list[str] = []
 
         # --- Pseudo : tenté indépendamment du reste (peut échouer sur le
         # propriétaire du serveur quelle que soit la hiérarchie des rôles) ---
         try:
-            await member.edit(nick=f"{full_name}{separator}{pilot_id}".strip())
+            await member.edit(nick=new_nick)
         except discord.Forbidden:
             errors.append(
                 "pseudo non modifié (rôle du bot trop bas, ou membre = propriétaire du serveur)"
@@ -204,7 +209,9 @@ class VamsysCog(commands.Cog):
                             ),
                             status=502,
                         )
-                    pilot_data = await resp.json()
+                    raw_data = await resp.json()
+                    # L'API vAMSYS enveloppe la réponse dans une clé "data"
+                    pilot_data = raw_data.get("data", raw_data) if isinstance(raw_data, dict) else raw_data
                     log.info("Profil pilote reçu : %s", pilot_data)
             except aiohttp.ClientError as exc:
                 log.exception("Erreur réseau lors de la récupération du profil : %s", exc)
@@ -220,6 +227,24 @@ class VamsysCog(commands.Cog):
             return web.Response(text="Tu ne sembles plus être membre de ce serveur Discord.", status=400)
 
         success, message = await self.apply_pilot_to_member(guild, member, pilot_data)
+
+        # Enregistrement en base même en cas de succès partiel (ex: rôle
+        # appliqué mais pseudo refusé) : l'identité vAMSYS est confirmée,
+        # ce qui compte pour la traçabilité.
+        first_name = pilot_data.get("first_name") or pilot_data.get("firstName") or ""
+        last_name = pilot_data.get("last_name") or pilot_data.get("lastName") or ""
+        skr_id = pilot_data.get("username") or pilot_data.get("pilot_id") or ""
+
+        db_ok = await self.bot.supabase.upsert_link(
+            {
+                "discord_user_id": str(member.id),
+                "skr_id": skr_id,
+                "first_name": first_name,
+                "last_name": last_name,
+            }
+        )
+        if not db_ok:
+            log.error("Échec d'enregistrement Supabase pour %s (%s)", member, skr_id)
 
         if success and message == "OK":
             return web.Response(

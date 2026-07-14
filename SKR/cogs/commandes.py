@@ -1,9 +1,23 @@
+import logging
+
 import discord
 from discord import app_commands
 from discord.ext import commands
 
 import config
 from cogs.vamsys import VamsysCog
+
+log = logging.getLogger("skr_bot.commandes")
+
+
+def _format_record(record: dict, member: discord.Member) -> discord.Embed:
+    embed = discord.Embed(title="Compte lié", color=discord.Color.blurple())
+    embed.add_field(name="ID SKR", value=record.get("skr_id") or "—", inline=True)
+    full_name = f"{record.get('first_name') or ''} {record.get('last_name') or ''}".strip()
+    embed.add_field(name="Nom", value=full_name or "—", inline=True)
+    embed.add_field(name="Discord", value=member.mention, inline=False)
+    embed.add_field(name="Lié le", value=record.get("linked_at") or "—", inline=False)
+    return embed
 
 
 class LinkAccountView(discord.ui.View):
@@ -12,6 +26,26 @@ class LinkAccountView(discord.ui.View):
     def __init__(self, bot: commands.Bot):
         super().__init__(timeout=None)
         self.bot = bot
+
+    async def on_error(
+        self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item
+    ) -> None:
+        # Sans ça, une erreur inattendue (ex: vAMSYS injoignable, cog non
+        # chargé, etc.) fait juste échouer l'interaction côté Discord sans
+        # rien logger — impossible à diagnostiquer. On log ET on prévient
+        # l'utilisateur au lieu de le laisser avec "Cette interaction a échoué".
+        log.exception("Erreur dans le bouton de liaison vAMSYS : %s", error)
+        message = (
+            "Une erreur inattendue est survenue. Réessaie dans quelques instants, "
+            "et préviens un administrateur si ça persiste."
+        )
+        try:
+            if interaction.response.is_done():
+                await interaction.followup.send(message, ephemeral=True)
+            else:
+                await interaction.response.send_message(message, ephemeral=True)
+        except discord.HTTPException:
+            pass
 
     @discord.ui.button(
         label="Lier mon compte vAMSYS",
@@ -58,6 +92,7 @@ class LinkAccountView(discord.ui.View):
 
 
 class CommandesCog(commands.Cog):
+    """Slash commands du bot : bouton de liaison, ping, etc."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -67,7 +102,6 @@ class CommandesCog(commands.Cog):
         # que le bouton reste cliquable après un redémarrage du bot.
         self.bot.add_view(LinkAccountView(self.bot))
 
-# /createrequestbutton
     @app_commands.command(
         name="createrequestbutton",
         description="Crée le bouton de liaison de compte dans ce salon.",
@@ -78,7 +112,6 @@ class CommandesCog(commands.Cog):
         await interaction.channel.send(view=LinkAccountView(self.bot))
         await interaction.delete_original_response()
 
-# /ping
     @app_commands.command(name="ping", description="Voir le ping du bot")
     @app_commands.checks.has_permissions(manage_messages=True)
     async def ping(self, interaction: discord.Interaction):
@@ -86,6 +119,54 @@ class CommandesCog(commands.Cog):
         await interaction.response.send_message(
             f"🏓 Pong ! Ma latence est de **{latency}ms**.", ephemeral=True
         )
+
+    @app_commands.command(
+        name="account",
+        description="Affiche les infos du compte vAMSYS lié à un membre.",
+    )
+    @app_commands.describe(membre="Le membre Discord à consulter")
+    @app_commands.checks.has_permissions(manage_permissions=True)
+    async def account(self, interaction: discord.Interaction, membre: discord.Member):
+        await interaction.response.defer(ephemeral=True)
+
+        record = await self.bot.supabase.get_by_discord_id(str(membre.id))
+
+        if record is None:
+            await interaction.followup.send(
+                f"Aucun compte lié trouvé pour {membre.mention}.", ephemeral=True
+            )
+            return
+
+        await interaction.followup.send(embed=_format_record(record, membre), ephemeral=True)
+
+    @app_commands.command(
+        name="removeaccount",
+        description="Supprime l'entrée de liaison d'un membre.",
+    )
+    @app_commands.describe(membre="Le membre Discord dont il faut supprimer la liaison")
+    @app_commands.checks.has_permissions(manage_permissions=True)
+    async def remove_account(self, interaction: discord.Interaction, membre: discord.Member):
+        await interaction.response.defer(ephemeral=True)
+
+        record = await self.bot.supabase.get_by_discord_id(str(membre.id))
+        if record is None:
+            await interaction.followup.send(
+                f"Aucun compte lié trouvé pour {membre.mention}.", ephemeral=True
+            )
+            return
+
+        deleted = await self.bot.supabase.delete(str(membre.id))
+
+        if deleted:
+            await interaction.followup.send(
+                f"✅ Entrée supprimée pour {membre.mention} (`{record.get('skr_id') or '?'}`). "
+                "Le pseudo/rôle Discord actuels ne sont pas modifiés automatiquement.",
+                ephemeral=True,
+            )
+        else:
+            await interaction.followup.send(
+                "❌ Erreur lors de la suppression en base.", ephemeral=True
+            )
 
 
 async def setup(bot: commands.Bot):

@@ -13,16 +13,23 @@ load_dotenv()
 # À définir sur Orion (panel -> Startup / Variables) :
 #   DISCORD_TOKEN=...
 #   NGROK_AUTHTOKEN=...
+#   SUPABASE_URL=...
+#   SUPABASE_SERVICE_KEY=...
 #
 # Pas de VAMSYS_CLIENT_SECRET : le client OAuth "Authorization Code + PKCE"
 # est un client PUBLIC. La sécurité repose sur le code_verifier/code_challenge
 # (PKCE), pas sur un secret partagé — vAMSYS ne t'en fournit donc pas.
 TOKEN = os.environ.get("DISCORD_TOKEN")
 NGROK_AUTHTOKEN = os.environ.get("NGROK_AUTHTOKEN")
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
+SUPABASE_TABLE = os.environ.get("SUPABASE_TABLE", "skr_accounts")
 
 for _name, _value in [
     ("DISCORD_TOKEN", TOKEN),
     ("NGROK_AUTHTOKEN", NGROK_AUTHTOKEN),
+    ("SUPABASE_URL", SUPABASE_URL),
+    ("SUPABASE_SERVICE_KEY", SUPABASE_SERVICE_KEY),
 ]:
     if not _value:
         raise RuntimeError(f"Variable d'environnement manquante : {_name}")
@@ -44,13 +51,8 @@ LOCAL_PORT = 8080
 
 REDIRECT_URI = f"https://{NGROK_DOMAIN}/vamsys/callback"
 
-# ⚠️ À CONFIRMER dans https://vamsys.io/docs/pilot (section "Authorize" et
-# section "Token") — ce sont les valeurs les plus probables suivant la
-# convention OAuth2 déjà confirmée pour /oauth/token, mais pas encore vérifiées
-# mot pour mot dans la doc v3.
 VAMSYS_AUTHORIZE_URL = "https://vamsys.io/oauth/authorize"
 VAMSYS_TOKEN_URL = "https://vamsys.io/oauth/token"
-# Endpoint confirmé dans la doc vAMSYS (Server: https://vamsys.io/api/v3/pilot)
 VAMSYS_PILOT_ME_URL = "https://vamsys.io/api/v3/pilot/profile"
 
 VAMSYS_SCOPES = "identity:basic identity:discord pilot:read"
