@@ -106,22 +106,25 @@ class VamsysCog(commands.Cog):
         if server_config is None:
             return False, "Serveur non configuré."
 
-        first_name = pilot_data.get("first_name") or pilot_data.get("firstName") or ""
-        last_name = pilot_data.get("last_name") or pilot_data.get("lastName") or ""
+        first_name = (pilot_data.get("first_name") or pilot_data.get("firstName") or "").strip()
+        last_name = (pilot_data.get("last_name") or pilot_data.get("lastName") or "").strip()
         pilot_id = pilot_data.get("username") or pilot_data.get("pilot_id") or ""
 
-        full_name = sanitise_name(f"{first_name} {last_name}".strip())
+        # Formatage du nom de famille : on ne garde que l'initiale suivie d'un point (ex: "J.")
+        last_initial = f"{last_name[0].upper()}." if last_name else ""
+        
+        # Reconstruction du nom complet (ex: "Ewann J.")
+        formatted_name = f"{first_name} {last_initial}".strip()
+        full_name = sanitise_name(formatted_name)
+        
         separator = server_config["nickSeparator"]
 
-        # Si vAMSYS ne renvoie pas de nom (ex: champ absent de la réponse
-        # /pilot/profile), on évite un pseudo du style " | SKR0001" et on
-        # se rabat sur l'ID SKR seul.
+        # Si vAMSYS ne renvoie pas de nom, on se rabat sur l'ID de pilote seul
         new_nick = f"{full_name}{separator}{pilot_id}".strip() if full_name else pilot_id
 
         errors: list[str] = []
 
-        # --- Pseudo : tenté indépendamment du reste (peut échouer sur le
-        # propriétaire du serveur quelle que soit la hiérarchie des rôles) ---
+        # --- Pseudo : tenté indépendamment du reste ---
         try:
             await member.edit(nick=new_nick)
         except discord.Forbidden:
@@ -129,7 +132,7 @@ class VamsysCog(commands.Cog):
                 "pseudo non modifié (rôle du bot trop bas, ou membre = propriétaire du serveur)"
             )
 
-        # --- Rôles : toujours tenté, même si le pseudo a échoué au-dessus ---
+        # --- Rôles : toujours tenté ---
         role_removal_cfg = server_config.get("roleRemoval", {"enabled": False, "roleId": []})
         user_role_ids = [r.id for r in member.roles if r.id != guild.id]
 
@@ -152,8 +155,6 @@ class VamsysCog(commands.Cog):
         if not errors:
             return True, "OK"
 
-        # Rôles appliqués mais pseudo en échec (ou l'inverse) : on considère
-        # que c'est un succès partiel, avec le détail de ce qui a raté.
         return True, "Partiel : " + " ; ".join(errors)
 
     async def remove_pilot_from_member(
