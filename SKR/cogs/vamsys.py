@@ -1,6 +1,7 @@
 import logging
 import secrets
 import time
+from datetime import datetime, timezone
 
 import aiohttp
 import discord
@@ -11,6 +12,17 @@ import config
 from utils import generate_pkce_pair, sanitise_name
 
 log = logging.getLogger("skr_bot.vamsys")
+
+
+def _compute_team(pilot_data: dict) -> int:
+    """0 = Pilote, 1 = Staff. Déduit du rang vAMSYS (nom ou abréviation
+    contenant "staff", insensible à la casse)."""
+    rank = pilot_data.get("rank") or {}
+    name = (rank.get("name") or "").lower()
+    abbreviation = (rank.get("abbreviation") or "").lower()
+    if "staff" in name or "staff" in abbreviation:
+        return 1
+    return 0
 
 
 class VamsysCog(commands.Cog):
@@ -144,6 +156,36 @@ class VamsysCog(commands.Cog):
         # que c'est un succès partiel, avec le détail de ce qui a raté.
         return True, "Partiel : " + " ; ".join(errors)
 
+    async def remove_pilot_from_member(
+        self, guild: discord.Guild, member: discord.Member
+    ) -> tuple[bool, str]:
+        """Retire le(s) rôle(s) d'accès configurés et réinitialise le pseudo
+        au pseudo Discord par défaut. Utilisé par /removeaccount."""
+        server_config = config.SERVERS.get(str(guild.id))
+        if server_config is None:
+            return False, "Serveur non configuré."
+
+        errors: list[str] = []
+
+        try:
+            await member.edit(nick=None)
+        except discord.Forbidden:
+            errors.append(
+                "pseudo non réinitialisé (rôle du bot trop bas, ou membre = propriétaire du serveur)"
+            )
+
+        access_role_ids = {int(rid) for rid in server_config.get("accessRoleId", [])}
+        remaining_roles = [r for r in member.roles if r.id != guild.id and r.id not in access_role_ids]
+
+        try:
+            await member.edit(roles=remaining_roles)
+        except discord.Forbidden:
+            errors.append("rôle non retiré (rôle du bot trop bas)")
+
+        if not errors:
+            return True, "OK"
+        return True, "Partiel : " + " ; ".join(errors)
+
     # ------------------------------------------------------------------
     # Callback OAuth (route web)
     # ------------------------------------------------------------------
@@ -193,7 +235,7 @@ class VamsysCog(commands.Cog):
             if not access_token:
                 return web.Response(text="Réponse vAMSYS invalide (pas de token).", status=502)
 
-            # --- Récupération du profil pilote ---
+            # --- Récupération du profil pilote (rang, username) ---
             headers = {"Authorization": f"Bearer {access_token}"}
             try:
                 async with session.get(config.VAMSYS_PILOT_ME_URL, headers=headers) as resp:
@@ -213,11 +255,34 @@ class VamsysCog(commands.Cog):
                     # L'API vAMSYS enveloppe la réponse dans une clé "data"
                     pilot_data = raw_data.get("data", raw_data) if isinstance(raw_data, dict) else raw_data
                     log.info("Profil pilote reçu : %s", pilot_data)
+
+                # --- Récupération de l'identité (nom) — endpoint séparé ---
+                async with session.get(config.VAMSYS_USER_URL, headers=headers) as resp:
+                    if resp.status != 200:
+                        body = await resp.text()
+                        log.warning("Échec de récupération de l'identité pilote (%s) : %s", resp.status, body)
+                        identity_data = {}
+                    else:
+                        raw_identity = await resp.json()
+                        identity_data = (
+                            raw_identity.get("data", raw_identity)
+                            if isinstance(raw_identity, dict)
+                            else raw_identity
+                        )
+                        log.info("Identité pilote reçue : %s", identity_data)
             except aiohttp.ClientError as exc:
                 log.exception("Erreur réseau lors de la récupération du profil : %s", exc)
                 return web.Response(text=f"Erreur réseau, réessaie plus tard.\n\n[DEBUG] {exc}", status=502)
 
-        # --- Application du pseudo/rôle côté Discord ---
+        # --- Fusion des deux réponses : rang depuis /profile, nom depuis /user ---
+        first_name = identity_data.get("first_name") or pilot_data.get("first_name") or ""
+        last_name = identity_data.get("last_name") or pilot_data.get("last_name") or ""
+        skr_id = (
+            pilot_data.get("username")
+            or (identity_data.get("pilot") or {}).get("username")
+            or ""
+        )
+
         guild = self.bot.get_guild(login_data["guild_id"])
         if guild is None:
             return web.Response(text="Le bot ne trouve plus ce serveur Discord.", status=500)
@@ -226,25 +291,29 @@ class VamsysCog(commands.Cog):
         if member is None:
             return web.Response(text="Tu ne sembles plus être membre de ce serveur Discord.", status=400)
 
-        success, message = await self.apply_pilot_to_member(guild, member, pilot_data)
-
-        # Enregistrement en base même en cas de succès partiel (ex: rôle
-        # appliqué mais pseudo refusé) : l'identité vAMSYS est confirmée,
-        # ce qui compte pour la traçabilité.
-        first_name = pilot_data.get("first_name") or pilot_data.get("firstName") or ""
-        last_name = pilot_data.get("last_name") or pilot_data.get("lastName") or ""
-        skr_id = pilot_data.get("username") or pilot_data.get("pilot_id") or ""
-
+        # --- Enregistrement en base D'ABORD : si ça échoue, on n'applique
+        # ni le pseudo ni le rôle (source de vérité = la base). ---
         db_ok = await self.bot.supabase.upsert_link(
             {
                 "discord_user_id": str(member.id),
                 "skr_id": skr_id,
                 "first_name": first_name,
                 "last_name": last_name,
+                "team": _compute_team(pilot_data),
+                "linked_at": datetime.now(timezone.utc).isoformat(),
             }
         )
         if not db_ok:
             log.error("Échec d'enregistrement Supabase pour %s (%s)", member, skr_id)
+            return web.Response(
+                text="❌ Erreur lors de l'enregistrement en base de données. "
+                "Ton pseudo et ton rôle n'ont pas été modifiés. Réessaie, ou contacte un administrateur.",
+                status=500,
+            )
+
+        # --- Application du pseudo/rôle côté Discord (seulement si la DB a réussi) ---
+        merged_data = {**pilot_data, "first_name": first_name, "last_name": last_name, "username": skr_id}
+        success, message = await self.apply_pilot_to_member(guild, member, merged_data)
 
         if success and message == "OK":
             return web.Response(

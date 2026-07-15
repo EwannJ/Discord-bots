@@ -54,6 +54,8 @@ REDIRECT_URI = f"https://{NGROK_DOMAIN}/vamsys/callback"
 VAMSYS_AUTHORIZE_URL = "https://vamsys.io/oauth/authorize"
 VAMSYS_TOKEN_URL = "https://vamsys.io/oauth/token"
 VAMSYS_PILOT_ME_URL = "https://vamsys.io/api/v3/pilot/profile"
+# Endpoint identité (first_name, last_name, email, discord, réseaux...) — scope identity:basic
+VAMSYS_USER_URL = "https://vamsys.io/api/v3/pilot/user"
 
 VAMSYS_SCOPES = "identity:basic identity:discord pilot:read"
 
@@ -71,3 +73,30 @@ SERVERS = {
 
 # Durée de vie max d'une tentative de liaison en attente (secondes)
 LOGIN_TIMEOUT_SECONDS = 600  # 10 minutes
+
+# ---------------------------------------------------------------------------
+# TICKETS EXÉCUTIFS (/ticketexecutif, /ticketrestore)
+# ---------------------------------------------------------------------------
+# Catégories dans lesquelles la commande /ticketexecutif est utilisable.
+# Laisse la liste vide pour autoriser n'importe quelle catégorie.
+TICKET_CATEGORY_IDS: list[str] = [
+    "1525919874143227995",
+]
+
+# Rôles à qui on retire la vue du salon quand il passe en exécutif
+# (ex: rôle Staff général + un autre rôle).
+TICKET_EXEC_DENY_ROLE_IDS: list[str] = [
+    "1425110909658992864", # Staff
+    "1525926738046226513" # PIREP manager
+]
+
+# Rôles à qui on donne l'accès exclusif au salon en mode exécutif.
+TICKET_EXEC_ALLOW_ROLE_IDS: list[str] = [
+    "1525929854208577556", # Directeur des opérations
+    "1525905898923626527" # Responsable développement
+    "1416864103602978947" # COO
+    "1416863443478122646" # CEE
+]
+
+# EMBED
+EMBED_COLOR = 0x0e8694
