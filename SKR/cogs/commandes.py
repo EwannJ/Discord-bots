@@ -54,12 +54,12 @@ def _format_linked_at(raw: str | None) -> str:
 
 def _format_record(record: dict, member: discord.Member) -> discord.Embed:
     embed = discord.Embed(title="Compte lié", color=config.EMBED_COLOR)
-    embed.add_field(name="ID SKR", value=record.get("skr_id") or "—", inline=True)
-    team = record.get("team")
-    embed.add_field(name="Équipe", value="Staff" if team == 1 else "Pilote", inline=True)
+    embed.add_field(name="ID SKR", value=record.get("skr_id") or "—", inline=False)
     full_name = f"{record.get('first_name') or ''} {record.get('last_name') or ''}".strip()
     embed.add_field(name="Nom", value=full_name or "—", inline=False)
     embed.add_field(name="Discord", value=member.mention, inline=False)
+    team = record.get("team")
+    embed.add_field(name="Rôle", value=team, inline=False)
     embed.add_field(name="Lié le", value=_format_linked_at(record.get("linked_at")), inline=False)
     return embed
 

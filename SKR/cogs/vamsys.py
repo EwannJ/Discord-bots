@@ -15,14 +15,9 @@ log = logging.getLogger("skr_bot.vamsys")
 
 
 def _compute_team(pilot_data: dict) -> int:
-    """0 = Pilote, 1 = Staff. Déduit du rang vAMSYS (nom ou abréviation
-    contenant "staff", insensible à la casse)."""
     rank = pilot_data.get("rank") or {}
-    name = (rank.get("name") or "").lower()
-    abbreviation = (rank.get("abbreviation") or "").lower()
-    if "staff" in name or "staff" in abbreviation:
-        return 1
-    return 0
+    name = rank.get("name")
+    return name
 
 
 class VamsysCog(commands.Cog):
