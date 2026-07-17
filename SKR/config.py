@@ -98,5 +98,11 @@ TICKET_EXEC_ALLOW_ROLE_IDS: list[str] = [
     "1416863443478122646" # CEE
 ]
 
+# ---------------------------------------------------------------------------
+# ABSENCES (/absence)
+# ---------------------------------------------------------------------------
+# Salon dans lequel le formulaire d'absence est posté.
+ABSENCE_CHANNEL_ID = "1525924102336942191"
+
 # EMBED
 EMBED_COLOR = 0x0e8694

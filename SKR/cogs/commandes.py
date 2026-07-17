@@ -411,6 +411,80 @@ class CommandesCog(commands.Cog):
                     "Une erreur inattendue est survenue.", ephemeral=True
                 )
 
+# /absence
+    @app_commands.command(name="absence", description="Signaler une absence")
+    @app_commands.describe(
+        date_début="Date du début de l'absence (ex: 20/07/2026)",
+        date_fin="Date de fin de l'absence (ex: 25/07/2026)",
+        motif="Motif de l'absence",
+    )
+    async def absence(
+        self, interaction: discord.Interaction, date_début: str, date_fin: str, motif: str
+    ):
+        try:
+            channel_id = int(config.ABSENCE_CHANNEL_ID)
+        except (TypeError, ValueError):
+            log.error("config.ABSENCE_CHANNEL_ID est invalide : %r", config.ABSENCE_CHANNEL_ID)
+            await interaction.response.send_message(
+                "❌ Le salon de réception des absences est mal configuré. "
+                "Contactez un administrateur.",
+                ephemeral=True,
+            )
+            return
+
+        channel = self.bot.get_channel(channel_id)
+        if channel is None:
+            try:
+                channel = await self.bot.fetch_channel(channel_id)
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                channel = None
+
+        if channel is None:
+            await interaction.response.send_message(
+                "❌ Le salon de réception des absences est introuvable. "
+                "Contactez un administrateur.",
+                ephemeral=True,
+            )
+            return
+
+        embed = discord.Embed(title="🛡️ Déclaration d'une absence staff", color=config.EMBED_COLOR)
+        embed.add_field(name="Staff", value=interaction.user.mention, inline=False)
+        embed.add_field(name="Début", value=date_début, inline=True)
+        embed.add_field(name="Fin", value=date_fin, inline=True)
+        embed.add_field(name="Motif", value=motif, inline=False)
+        now_ts = int(datetime.now(timezone.utc).timestamp())
+        embed.add_field(name="─", value=f"Déclaré le <t:{now_ts}:f>", inline=False)
+
+        try:
+            await channel.send(embed=embed)
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                "❌ Le bot n'a pas la permission d'envoyer de message dans le salon des absences.",
+                ephemeral=True,
+            )
+            return
+        except discord.HTTPException as exc:
+            log.exception("Erreur lors de l'envoi du formulaire d'absence : %s", exc)
+            await interaction.response.send_message(
+                "❌ Erreur lors de l'envoi du formulaire d'absence.", ephemeral=True
+            )
+            return
+
+        await interaction.response.send_message(
+            f"✅ Ton absence du **{date_début}** au **{date_fin}** a bien été transmise.",
+            ephemeral=True,
+        )
+
+    @absence.error
+    async def absence_error(
+        self, interaction: discord.Interaction, error: app_commands.AppCommandError
+    ):
+        log.exception("Erreur dans /absence : %s", error)
+        if not interaction.response.is_done():
+            await interaction.response.send_message(
+                "Une erreur inattendue est survenue.", ephemeral=True
+            )
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(CommandesCog(bot))
