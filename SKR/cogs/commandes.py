@@ -422,6 +422,23 @@ class CommandesCog(commands.Cog):
         self, interaction: discord.Interaction, date_début: str, date_fin: str, motif: str
     ):
         try:
+            debut_dt = datetime.strptime(date_début, "%d/%m/%Y")
+            fin_dt = datetime.strptime(date_fin, "%d/%m/%Y")
+        except ValueError:
+            await interaction.response.send_message(
+                "❌ Format de date invalide. Utilise le format JJ/MM/AAAA (ex: 20/07/2026).",
+                ephemeral=True,
+            )
+            return
+
+        if fin_dt < debut_dt:
+            await interaction.response.send_message(
+                "❌ La date de fin ne peut pas être antérieure à la date de début.",
+                ephemeral=True,
+            )
+            return
+
+        try:
             channel_id = int(config.ABSENCE_CHANNEL_ID)
         except (TypeError, ValueError):
             log.error("config.ABSENCE_CHANNEL_ID est invalide : %r", config.ABSENCE_CHANNEL_ID)
