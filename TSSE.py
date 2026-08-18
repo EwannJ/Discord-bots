@@ -3,6 +3,9 @@ from discord import app_commands
 from discord.ui import Button, View
 from datetime import datetime, timedelta, timezone
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 TOKEN = os.environ.get("TSSE")
 
