@@ -377,8 +377,8 @@ class HistoriquePagination(discord.ui.View):
         self.update_buttons()
 
     def update_buttons(self):
-        self.prev_page.disabled = self.current_page == 0
-        self.next_page.disabled = self.current_page == len(self.pages) - 1
+        self.prev_page.disabled = self.current_page == 0 # type: ignore
+        self.next_page.disabled = self.current_page == len(self.pages) - 1 # type: ignore
 
     def create_embed(self):
         embed = self.embed_base.copy()
@@ -503,8 +503,8 @@ class AllHistoriquePagination(discord.ui.View):
         self.update_buttons()
 
     def update_buttons(self):
-        self.prev_page.disabled = self.current_page == 0
-        self.next_page.disabled = self.current_page == len(self.pages) - 1
+        self.prev_page.disabled = self.current_page == 0 # type: ignore
+        self.next_page.disabled = self.current_page == len(self.pages) - 1 # type: ignore
 
     def create_embed(self):
         embed = self.embed_base.copy()

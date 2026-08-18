@@ -16,8 +16,8 @@ bot = commands.Bot(command_prefix=commands.when_mentioned, intents=intents, help
 
 # Client Supabase partagé, accessible depuis n'importe quel cog via self.bot.supabase
 bot.supabase = SupabaseClient(
-    url=config.SUPABASE_URL,
-    service_key=config.SUPABASE_SERVICE_KEY,
+    url=config.SUPABASE_URL, # type: ignore
+    service_key=config.SUPABASE_SERVICE_KEY, # type: ignore
     table=config.SUPABASE_TABLE,
 )
 log.info("Client Supabase configuré (table: %s)", config.SUPABASE_TABLE)
