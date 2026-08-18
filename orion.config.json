@@ -6,7 +6,11 @@
       "node_modules",
       "dist",
       ".git",
-      "*.log"
+      "*.log",
+      ".orion",
+      ".vscode",
+      ".gitignore",
+      "orion.config.json"
     ]
   }
 }
