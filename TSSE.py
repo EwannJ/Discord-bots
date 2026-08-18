@@ -2,8 +2,10 @@ import discord
 from discord import app_commands
 from discord.ui import Button, View
 from datetime import datetime, timedelta, timezone
+import os
 
-# Dictionnaire temporaire pour stocker les heures de début : {user_id: datetime}
+TOKEN = os.environ.get("TSSE")
+
 prise_de_service = {}
 
 adminrole = [1514370877142339744, 1381733917471674459]
@@ -15,7 +17,7 @@ def get_heure_fr():
 
 class ServiceView(View):
     def __init__(self):
-        super().__init__(timeout=None) # Les boutons restent actifs indéfiniment
+        super().__init__(timeout=None)
 
     @discord.ui.button(label="Débuter la session", style=discord.ButtonStyle.green, custom_id="ps_button")
     async def prise_service(self, interaction: discord.Interaction, button: Button):
@@ -633,4 +635,4 @@ async def all_historique(interaction: discord.Interaction, debut: str, fin: str,
         await interaction.followup.send(embed=embed_base, ephemeral=True)
 
 # Lancement du bot
-bot.run('MTUxNDM3NjI3NTA1NjM5ODM0Ng.GMHzFf.47YcdgHhgpR4uhtwM1khCiHfWLXIj637Y4G2G0')
+bot.run(TOKEN)

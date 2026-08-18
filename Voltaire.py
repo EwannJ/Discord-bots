@@ -1,7 +1,8 @@
 import discord
 import requests
+import os
 
-TOKEN = "MTQ3NDg2NDM2NDA5ODk0OTM0Mg.GvKUn6.RKV-9gdYYiA2n68CvwMhyVoNAo1mTR67f5HnAY"
+TOKEN = os.environ.get("VOLTAIRE")
 
 intents = discord.Intents.default()
 intents.message_content = True
