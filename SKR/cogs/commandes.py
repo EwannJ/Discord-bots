@@ -418,6 +418,7 @@ class CommandesCog(commands.Cog):
         date_fin="Date de fin de l'absence (ex: 25/07/2026)",
         motif="Motif de l'absence",
     )
+    @app_commands.checks.has_permissions(manage_messages=True)
     async def absence(
         self, interaction: discord.Interaction, date_début: str, date_fin: str, motif: str
     ):
